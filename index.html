@@ -93,6 +93,8 @@
     }
     
     document.querySelector('button#authReset').onclick=async function(){
+        rewardForm.hidden=true
+        statusSpan.innerHTML='Clearing login info...'
         await storage.clear()
         localStorage.removeItem('spotify-sdk:AuthorizationCodeWithPKCEStrategy:token')
         await webStorage.clear()
