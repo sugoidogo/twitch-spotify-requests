@@ -141,8 +141,9 @@
     async function loginSpotify(){
         webStorage=new WebStorage(authProvider,twitchToken.user_id)
         statusSpan.innerHTML='Logging in to Spotify...'
-        let spotifyToken=await webStorage.getItem('spotifyToken').then(response=>response.json()).catch(()=>undefined)
-        if(spotifyToken){
+        try{
+            const spotifyToken=await webStorage.getItem('spotifyToken')
+            .then(response=>response.json())
             spotify=SpotifyApi.withAccessToken(spotify_client_id, spotifyToken)
             window.spotify=spotify
             await spotify.player.getAvailableDevices()
@@ -154,7 +155,7 @@
                 }
             }
             init()
-        }else{
+        }catch{
             authSpotifyButton.hidden=false
             statusSpan.innerHTML='Waiting for login'
         }
