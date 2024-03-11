@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@spotify/web-api-ts-sdk": "^1.2.0",
+    "@twurple/eventsub-ws": "^7.0.10",
+    "localforage": "^1.10.0"
+  }
+}

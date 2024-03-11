@@ -1,0 +1,23 @@
+<body>
+    <h1>This page should dissapear shortly</h1>
+</body>
+<script type="module">
+    import { SpotifyApi } from 'https://cdn.jsdelivr.net/npm/@spotify/web-api-ts-sdk/+esm'
+    
+    const spotify_client_id='61529d38670a4288beee6136eb9a4e58'
+    const spotify_redirect_uri=location.origin+location.pathname
+
+    function onAuthorized(accessToken){
+        opener.postMessage({type:'spotify',auth:accessToken})
+        close()
+    }
+
+    const scopes=[
+        'user-modify-playback-state',
+        'user-read-playback-state',
+        'user-read-currently-playing',
+        'streaming',
+    ]
+    
+    SpotifyApi.performUserAuthorization(spotify_client_id,spotify_redirect_uri,scopes,onAuthorized)
+</script>

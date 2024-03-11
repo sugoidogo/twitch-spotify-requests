@@ -1,0 +1,248 @@
+<body>
+    <span id="status">Loading...</span>
+    <br>
+    <button id="authReset">Reset Logins</button>
+    <button id="authTwitch" hidden>Login to Twitch</button>
+    <button id="authSpotify" hidden>Login to Spotify</button>
+    <br>
+    <form id="reward" hidden>
+        <label>
+            Enabled:
+            <input type="checkbox" name="isEnabled" checked>
+        </label>
+        <br>
+        <label>
+            Title:
+            <input type="text" name="title" value="Spotify Song Request">
+        </label>
+        <br>
+        <label>
+            Prompt:
+            <input type="text" name="prompt" value="Searches spotify for a song and adds it to the queue">
+        </label>
+        <br>
+        <label>
+            Cost:
+            <input name="cost" type="number" min="1" value="100">
+            channel points
+        </label>
+        <br>
+        <label>
+            Cooldown:
+            <input name="globalCooldown" type="number" min="0" value="0">
+            seconds (0 to disable)
+        </label>
+        <br>
+        <label>
+            Max redeptions per stream:
+            <input type="number" name="maxRedemptionsPerStream", min="0", value="0">
+            redemptions (0 to disable)
+        </label>
+        <br>
+        <label>
+            Max redemptions per user per stream:
+            <input type="number" name="maxRedemptionsPerUserPerStream" min="0" value="0">
+            redemptions (0 to disable)
+        </label>
+        <br>
+        <button>Save Reward Settings</button>
+        <button type="reset">Reset</button>
+    </form>
+    <form name="config" hidden>
+        <label>
+            <input type="checkbox" name="webPlayer" checked>
+            Use Web Player (music plays from the browser source)
+        </label>
+        <br>
+        <label>
+            <input type="checkbox" name="startOnRequest" checked>
+            Start playback if a request is made when no song is playing
+        </label>
+        <br>
+        <button>Save Reward Settings</button>
+        <button type="reset">Reset</button>
+    </form>
+    <a>Browser Source (Copy Me!)</a>
+</body>
+<style>
+    input[type=number] {
+        width: 8ch;
+    }
+    input[name=prompt] {
+        width: 100ch;
+    }
+</style>
+<script type="module">
+    const twitch_client_id='fzm8wzgt2qf608y4trmp7r19ytbfkc'
+    const twitch_client_secret='e036ddpijlwc9a1nzoekqc383vgakh'
+    const twitch_redirect_uri=new URL('auth-twitch.html',location).toString()
+    const authTwitchButton=document.querySelector('button#authTwitch')
+
+    const spotify_client_id='61529d38670a4288beee6136eb9a4e58'
+    const spotify_redirect_uri=new URL('auth-spotify.html',location).toString()
+    const authSpotifyButton=document.querySelector('button#authSpotify')
+
+    const rewardForm=document.querySelector('form#reward')
+    const statusSpan=document.querySelector('span#status')
+
+    let reward_id=null
+
+    onerror=function(error){
+        console.error(error)
+        statusSpan.innerHTML=JSON.stringify(error)
+    }
+    
+    document.querySelector('button#authReset').onclick=async function(){
+        await storage.clear()
+        localStorage.removeItem('spotify-sdk:AuthorizationCodeWithPKCEStrategy:token')
+        location.reload()
+    }
+    
+    authTwitchButton.onclick=()=>window.open(twitch_redirect_uri)
+    authSpotifyButton.onclick=()=>window.open(spotify_redirect_uri)
+
+    import { SpotifyApi } from 'https://cdn.jsdelivr.net/npm/@spotify/web-api-ts-sdk/+esm'
+    let spotify = SpotifyApi.withUserAuthorization(spotify_client_id, location.toString(), ["user-modify-playback-state","streaming"]);
+
+    import { RefreshingAuthProvider, exchangeCode } from 'https://cdn.jsdelivr.net/npm/@twurple/auth/+esm'
+    const authProvider=new RefreshingAuthProvider({
+        clientId:twitch_client_id,
+        clientSecret:twitch_client_secret
+    })
+    window.twitchAuth=authProvider
+
+    import { ApiClient } from 'https://cdn.jsdelivr.net/npm/@twurple/api/+esm'
+    const twitch=new ApiClient({authProvider:authProvider})
+    window.twitch=twitch
+
+    import localforage from 'https://cdn.jsdelivr.net/npm/localforage/+esm'
+    const storage=localforage.createInstance({name:location.pathname})
+
+    import WebStorage from 'https://ts.sugoidogo.com/storage.mjs'
+    /** @type {Storage} */
+    let webStorage;
+
+    authProvider.onRefresh((user_id,token)=>{
+        token.user_id=user_id
+        twitchToken=token
+        storage.setItem('twitchToken',twitchToken)
+    })
+
+    statusSpan.innerHTML='Logging in to Twitch...'
+    let twitchToken=await storage.getItem('twitchToken')
+    if(twitchToken){
+        await authProvider.addUser(twitchToken.user_id,twitchToken,['chat'])
+        await loginSpotify()
+    }else{
+        authTwitchButton.hidden=false
+    }
+
+    async function loginSpotify(){
+        webStorage=new WebStorage(authProvider,twitchToken.user_id)
+        statusSpan.innerHTML='Logging in to Spotify...'
+        let spotifyToken=await webStorage.getItem('spotifyToken').then(response=>response.json()).catch(()=>undefined)
+        if(spotifyToken){
+            spotify=SpotifyApi.withAccessToken(spotify_client_id, spotifyToken)
+            window.spotify=spotify
+            await spotify.player.getAvailableDevices()
+            const setLocal=localStorage.setItem
+            localStorage.setItem=function(key,value){
+                setLocal(key,value)
+                if(key==='spotify-sdk:AuthorizationCodeWithPKCEStrategy:token'){
+                    webStorage.setItem('spotifyToken',value)
+                }
+            }
+            init()
+        }else{
+            authSpotifyButton.hidden=false
+            statusSpan.innerHTML='Waiting for login'
+        }
+    }
+
+    onmessage=async function(event){
+        console.debug(event)
+        if(event.origin===location.origin){
+            if(event.data.type==='twitch'){
+                twitchToken=await exchangeCode(twitch_client_id, twitch_client_secret, event.data.auth, twitch_redirect_uri)
+                twitchToken.user_id = await authProvider.addUserForToken(twitchToken,['chat'])
+                storage.setItem('twitchToken',twitchToken)
+                authTwitchButton.hidden=true
+                loginSpotify()
+                return
+            }
+            if(event.data.type==='spotify'){
+                const spotifyToken=event.data.auth
+                spotify=SpotifyApi.withAccessToken(spotify_client_id, spotifyToken)
+                window.spotify=spotify
+                webStorage.setItem('spotifyToken',JSON.stringify(spotifyToken))
+                authSpotifyButton.hidden=true
+                init()
+                return
+            }
+            throw {error:'Unknown auth type',data:event.data}
+        }
+    }
+
+    async function init(){
+        statusSpan.innerHTML='Loading reward settings...'
+        rewardForm.hidden=true
+        const rewards=await twitch.channelPoints.getCustomRewards(twitchToken.user_id,true)
+        for(const reward of rewards){
+            reward_id=reward.id
+            for(const input of rewardForm.querySelectorAll('input:not([type=checkbox])')){
+                input.value=reward[input.name] || 0
+            }
+            for(const input of rewardForm.querySelectorAll('input[type=checkbox]')){
+                input.checked=reward[input.name]
+            }
+        }
+        statusSpan.innerHTML='Loading song request settings...'
+        const config=await storage.getItem('config')||{}
+        const configForm=document.querySelector('form[name=config]')
+        for(const key of Object.keys(config)){
+            const input=configForm.querySelector('#'+key)
+            if(input.type.toLowerCase()==='checkbox'){
+                input.checked=config[key]
+            }
+        }
+        const url=new URL('widget.html',location)
+        url.searchParams.append('twitchToken',JSON.stringify(twitchToken))
+        document.querySelector('a').href=url
+        rewardForm.hidden=false
+        //configForm.hidden=false
+        statusSpan.innerHTML='Ready'
+    }
+
+    rewardForm.onsubmit=function(event){
+        event.preventDefault()
+        statusSpan.innerHTML='Saving settings...'
+        const data={userInputRequired:true}
+        for(const input of rewardForm.querySelectorAll('input[type=text]')){
+            data[input.name]=input.value
+        }
+        for(const input of rewardForm.querySelectorAll('input[type=number]')){
+            data[input.name]=Number(input.value)
+        }
+        for(const input of rewardForm.querySelectorAll('input[type=checkbox]')){
+            data[input.name]=input.checked
+        }
+        if(reward_id){
+            twitch.channelPoints.updateCustomReward(twitchToken.user_id,reward_id,data).then(reward=>{
+                statusSpan.innerHTML='Saved'
+            })
+        }else{
+            twitch.channelPoints.createCustomReward(twitchToken.user_id,data).then(reward=>{
+                reward_id=reward.id
+                statusSpan.innerHTML='Saved'
+            })
+        }
+        return false
+    }
+
+    for(const input of rewardForm.querySelectorAll('input')){
+        input.oninput=()=>statusSpan.innerHTML='You have unsaved changes'
+    }
+
+    rewardForm.onreset=()=>init()
+    
+</script>

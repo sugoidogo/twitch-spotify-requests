@@ -1,0 +1,22 @@
+<body>
+    <h1>This page should dissapear shortly</h1>
+</body>
+<script>
+    const params=new URLSearchParams(location.search)
+    const code=params.get('code')
+    if(code){
+        opener.postMessage({type:'twitch',auth:code},location.origin)
+        close()
+    }
+    const client_id='fzm8wzgt2qf608y4trmp7r19ytbfkc'
+    const client_secret='e036ddpijlwc9a1nzoekqc383vgakh'
+    const scope='channel:read:redemptions channel:manage:redemptions'
+    location.assign('https://id.twitch.tv/oauth2/authorize?'+
+        new URLSearchParams({
+            response_type:'code',
+            client_id:client_id,
+            scope:scope
+        }).toString()+
+        '&redirect_uri='+location.toString()
+    )
+</script>
