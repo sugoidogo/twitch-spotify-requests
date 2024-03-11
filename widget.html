@@ -1,7 +1,12 @@
+<body>
+    <div id="embed-iframe"></div>
+</body>
 <style>
     iframe {
         width: 100%;
         height: 100%;
+        opacity: 0;
+        transition: all 1s;
     }
     body {
         overflow:hidden;
@@ -95,33 +100,43 @@
     function setRewardPaused(isPaused=true){
         twitch.channelPoints.updateCustomReward(twitchToken.user_id,reward.id,{
                 isPaused:isPaused
-            })
+            }
+        )
     }
 
-    /**
-    if(params.get('webPlayback')){
-        console.debug('loading web player')
-        window.onSpotifyWebPlaybackSDKReady = () => {
-            const player = new Spotify.Player({
-                name: 'SugoiSpotifyRequests',
-                getOAuthToken: cb => { cb(spotify.authenticationStrategy.accessToken.access_token); },
-                volume: 1
-            });
-            player.addListener('ready',({device_id})=>{
-                spotify.player.transferPlayback([device_id],false)
-            })
-            player.connect()
-        }
-        await import('https://sdk.scdn.co/spotify-player.js')
-        setRewardPaused(false)
-    }else{
-        if(!await spotify.player.getPlaybackState()){
-            setRewardPaused()
-        }else{
-            setRewardPaused(false)
-        }
+    window.onSpotifyIframeApiReady=function(IFrameAPI){
+        const iframeDiv=document.querySelector('div#embed-iframe')
+        IFrameAPI.createController(iframeDiv,{},function onWidgetLoad(controller){
+            window.widget=controller
+        })
     }
-    */
+    const SpotifyIFrameAPIScript=document.createElement('script')
+    SpotifyIFrameAPIScript.async=true
+    SpotifyIFrameAPIScript.src='https://open.spotify.com/embed/iframe-api/v1'
+    document.body.appendChild(SpotifyIFrameAPIScript)
+
+    window.onSpotifyWebPlaybackSDKReady = function(){
+        const player = new Spotify.Player({
+            name: 'SugoiSpotifyRequests',
+            getOAuthToken: cb => { cb(spotify.authenticationStrategy.accessToken.access_token); },
+            volume: 1
+        });
+        player.addListener('player_state_changed', (state) => {
+            try{
+                const uri=state.track_window.current_track.uri
+                widget.loadUri(uri)
+                widget.iframeElement.style.opacity=1
+            }catch{
+                widget.iframeElement.style.opacity=0
+            }
+        });
+        player.connect()
+    }
+
+    function initLast(){
+        setRewardPaused(false)
+        import('https://sdk.scdn.co/spotify-player.js')
+    }
 
     if(!await spotify.player.getPlaybackState()){
         const devices=(await spotify.player.getAvailableDevices()).devices
@@ -132,13 +147,16 @@
                 const devices=(await spotify.player.getAvailableDevices()).devices
                 if(devices.length>0){
                     spotify.player.transferPlayback([devices[0].id],false)
-                    setRewardPaused(false)
                     clearInterval(intervalID)
+                    initLast()
                 }
             },1000)
         }else{
             spotify.player.transferPlayback([devices[0].id],false)
-            setRewardPaused(false)
+            initLast()
         }
+    }else{
+        initLast()
     }
+
 </script>
