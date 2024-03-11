@@ -27,7 +27,7 @@
     window.onbeforeunload=async function(){
         setRewardPaused()
         await webStorage.setItem('spotifyToken',
-            localStorage.getItem('spotify-sdk:AuthorizationCodeWithPKCEStrategy:token')
+            localStorage.getItem('spotify-sdk:AuthorizationCodeWithPKCEStrategy:token') || spotifyToken
         );
     }
 

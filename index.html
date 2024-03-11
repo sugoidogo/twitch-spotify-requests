@@ -141,11 +141,12 @@
         statusSpan.innerHTML='Waiting for login'
     }
 
+    let spotifyToken;
     async function loginSpotify(){
         webStorage=new WebStorage(authProvider,twitchToken.user_id)
         statusSpan.innerHTML='Logging in to Spotify...'
         try{
-            const spotifyToken=await webStorage.getItem('spotifyToken')
+            spotifyToken=await webStorage.getItem('spotifyToken')
             .then(response=>response.json())
             spotify=SpotifyApi.withAccessToken(spotify_client_id, spotifyToken)
             window.spotify=spotify
@@ -252,7 +253,7 @@
     
     window.onbeforeunload=async function(){
         await webStorage.setItem('spotifyToken',
-            localStorage.getItem('spotify-sdk:AuthorizationCodeWithPKCEStrategy:token')
+            localStorage.getItem('spotify-sdk:AuthorizationCodeWithPKCEStrategy:token') || spotifyToken
         );
     }
 
