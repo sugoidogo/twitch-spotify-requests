@@ -95,6 +95,7 @@
     document.querySelector('button#authReset').onclick=async function(){
         await storage.clear()
         localStorage.removeItem('spotify-sdk:AuthorizationCodeWithPKCEStrategy:token')
+        await webStorage.clear()
         location.reload()
     }
     
