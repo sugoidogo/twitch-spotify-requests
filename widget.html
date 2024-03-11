@@ -24,9 +24,9 @@
         document.body.innerHTML=message
     }
 
-    window.onbeforeunload=async function(){
+    window.onbeforeunload=function(){
         setRewardPaused()
-        await webStorage.setItem('spotifyToken',
+        webStorage.setItem('spotifyToken',
             localStorage.getItem('spotify-sdk:AuthorizationCodeWithPKCEStrategy:token') || spotifyToken
         );
     }
