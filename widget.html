@@ -19,8 +19,11 @@
         document.body.innerHTML=message
     }
 
-    window.onbeforeunload=function(){
+    window.onbeforeunload=async function(){
         setRewardPaused()
+        await webStorage.setItem('spotifyToken',
+            localStorage.getItem('spotify-sdk:AuthorizationCodeWithPKCEStrategy:token')
+        );
     }
 
     const twitch_client_id = 'fzm8wzgt2qf608y4trmp7r19ytbfkc'
