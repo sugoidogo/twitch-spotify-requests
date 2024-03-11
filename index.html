@@ -86,6 +86,7 @@
     const statusSpan=document.querySelector('span#status')
 
     let reward_id=null
+    let spotifyToken=null;
 
     onerror=function(error){
         console.error(error)
@@ -141,7 +142,6 @@
         statusSpan.innerHTML='Waiting for login'
     }
 
-    let spotifyToken;
     async function loginSpotify(){
         webStorage=new WebStorage(authProvider,twitchToken.user_id)
         statusSpan.innerHTML='Logging in to Spotify...'
