@@ -135,6 +135,7 @@
         await loginSpotify()
     }else{
         authTwitchButton.hidden=false
+        statusSpan.innerHTML='Waiting for login'
     }
 
     async function loginSpotify(){
