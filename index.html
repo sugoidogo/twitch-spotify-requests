@@ -250,4 +250,10 @@
 
     rewardForm.onreset=()=>init()
     
+    window.onbeforeunload=async function(){
+        await webStorage.setItem('spotifyToken',
+            localStorage.getItem('spotify-sdk:AuthorizationCodeWithPKCEStrategy:token')
+        );
+    }
+
 </script>
