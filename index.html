@@ -159,7 +159,8 @@
                 }
             }
             init()
-        }catch{
+        }catch (e){
+            console.warn(e)
             authSpotifyButton.hidden=false
             statusSpan.innerHTML='Waiting for login'
         }
