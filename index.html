@@ -74,7 +74,7 @@
 </style>
 <script type="module">
     const twitch_client_id='fzm8wzgt2qf608y4trmp7r19ytbfkc'
-    const twitch_client_secret='e036ddpijlwc9a1nzoekqc383vgakh'
+    const twitch_scopes=['channel:read:redemptions','channel:manage:redemptions']
     const twitch_redirect_uri=new URL('auth-twitch.html',location).toString()
     const authTwitchButton=document.querySelector('button#authTwitch')
 
@@ -88,7 +88,7 @@
     let reward_id=null
     let spotifyToken=null;
 
-    onerror=function(error){
+    onerror=function(event, source, line, column, error){
         console.error(error)
         statusSpan.innerHTML=JSON.stringify(error)
     }
@@ -96,46 +96,43 @@
     document.querySelector('button#authReset').onclick=async function(){
         rewardForm.hidden=true
         statusSpan.innerHTML='Clearing login info...'
-        await storage.clear()
         localStorage.removeItem('spotify-sdk:AuthorizationCodeWithPKCEStrategy:token')
         await webStorage.clear()
+        authProvider.removeUser()
         location.reload()
     }
     
-    authTwitchButton.onclick=()=>window.open(twitch_redirect_uri)
+    authTwitchButton.onclick=()=>authProvider.addUser(...twitch_scopes).then((token)=>{
+        twitchToken=token
+        window.twitchToken=twitchToken
+        authTwitchButton.hidden=true
+        loginSpotify()
+    })
     authSpotifyButton.onclick=()=>window.open(spotify_redirect_uri)
 
     import { SpotifyApi } from 'https://cdn.jsdelivr.net/npm/@spotify/web-api-ts-sdk/+esm'
     let spotify = SpotifyApi.withUserAuthorization(spotify_client_id, location.toString(), ["user-modify-playback-state","streaming"]);
 
-    import { RefreshingAuthProvider, exchangeCode } from 'https://cdn.jsdelivr.net/npm/@twurple/auth/+esm'
-    const authProvider=new RefreshingAuthProvider({
-        clientId:twitch_client_id,
-        clientSecret:twitch_client_secret
-    })
+    import SugoiAuthProvider from 'https://top.sugoidogo.com/SugoiAuthProvider.mjs'
+    const authProvider=new SugoiAuthProvider(twitch_client_id)
     window.twitchAuth=authProvider
 
     import { ApiClient } from 'https://cdn.jsdelivr.net/npm/@twurple/api/+esm'
     const twitch=new ApiClient({authProvider:authProvider})
     window.twitch=twitch
 
-    import localforage from 'https://cdn.jsdelivr.net/npm/localforage/+esm'
-    const storage=localforage.createInstance({name:location.pathname})
-
     import WebStorage from 'https://ts.sugoidogo.com/storage.mjs'
     /** @type {Storage} */
     let webStorage;
 
-    authProvider.onRefresh((user_id,token)=>{
-        token.user_id=user_id
-        twitchToken=token
-        storage.setItem('twitchToken',twitchToken)
-    })
-
     statusSpan.innerHTML='Logging in to Twitch...'
-    let twitchToken=await storage.getItem('twitchToken')
+    let twitchToken=await authProvider.addUser(...twitch_scopes).catch((error)=>{
+        console.warn(error)
+        return null
+    })
+    window.twitchToken=twitchToken
     if(twitchToken){
-        await authProvider.addUser(twitchToken.user_id,twitchToken,['chat'])
+        //await authProvider.addUser(twitchToken.user_id,twitchToken,['chat'])
         await loginSpotify()
     }else{
         authTwitchButton.hidden=false
@@ -151,13 +148,6 @@
             spotify=SpotifyApi.withAccessToken(spotify_client_id, spotifyToken)
             window.spotify=spotify
             await spotify.player.getAvailableDevices()
-            const setLocal=localStorage.setItem
-            localStorage.setItem=function(key,value){
-                setLocal(key,value)
-                if(key==='spotify-sdk:AuthorizationCodeWithPKCEStrategy:token'){
-                    webStorage.setItem('spotifyToken',value)
-                }
-            }
             init()
         }catch (e){
             console.warn(e)
@@ -203,6 +193,7 @@
                 input.checked=reward[input.name]
             }
         }
+        /**
         statusSpan.innerHTML='Loading song request settings...'
         const config=await storage.getItem('config')||{}
         const configForm=document.querySelector('form[name=config]')
@@ -212,11 +203,11 @@
                 input.checked=config[key]
             }
         }
+        //configForm.hidden=false*/
         const url=new URL('widget.html',location)
         url.searchParams.append('twitchToken',JSON.stringify(twitchToken))
         document.querySelector('a').href=url
         rewardForm.hidden=false
-        //configForm.hidden=false
         statusSpan.innerHTML='Ready'
     }
 

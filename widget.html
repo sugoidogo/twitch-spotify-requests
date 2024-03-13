@@ -32,17 +32,14 @@
     }
 
     const twitch_client_id = 'fzm8wzgt2qf608y4trmp7r19ytbfkc'
-    const twitch_client_secret = 'e036ddpijlwc9a1nzoekqc383vgakh'
+    const twitch_scopes=['channel:read:redemptions','channel:manage:redemptions']
     const spotify_client_id = '61529d38670a4288beee6136eb9a4e58'
     const params = new URLSearchParams(location.search)
     const initial_twitch_token = JSON.parse(params.get('twitchToken'))
     const initial_spotify_token = JSON.parse(params.get('spotifyToken'))
 
-    import { RefreshingAuthProvider, exchangeCode } from 'https://cdn.jsdelivr.net/npm/@twurple/auth/+esm'
-    const authProvider = new RefreshingAuthProvider({
-        clientId: twitch_client_id,
-        clientSecret: twitch_client_secret
-    })
+    import SugoiAuthProvider from 'https://top.sugoidogo.com/SugoiAuthProvider.mjs'
+    const authProvider=new SugoiAuthProvider(twitch_client_id)
 
     import { ApiClient } from 'https://cdn.jsdelivr.net/npm/@twurple/api/+esm'
     const twitch = new ApiClient({ authProvider: authProvider })
@@ -51,26 +48,11 @@
     import localforage from 'https://cdn.jsdelivr.net/npm/localforage/+esm'
     const storage = localforage.createInstance({ name: location.pathname })
 
-    authProvider.onRefresh((user_id, token) => {
-        token.user_id = user_id
-        twitchToken = token
-        storage.setItem('twitchToken', twitchToken)
-    })
-
-    let twitchToken = (await storage.getItem('twitchToken')) || initial_twitch_token
+    let twitchToken = (await authProvider.addUser(...twitch_scopes)) || await authProvider.addUserForToken(initial_twitch_token)
     console.debug(twitchToken)
-    await authProvider.addUser(twitchToken.user_id, twitchToken, ['chat'])
 
     import WebStorage from 'https://ts.sugoidogo.com/storage.mjs'
     const webStorage=new WebStorage(authProvider,twitchToken.user_id)
-
-    const setLocal=localStorage.setItem
-    localStorage.setItem=function(key,value){
-        setLocal(key,value)
-        if(key==='spotify-sdk:AuthorizationCodeWithPKCEStrategy:token'){
-            webStorage.setItem('spotifyToken',value)
-        }
-    }
 
     import { SpotifyApi } from 'https://cdn.jsdelivr.net/npm/@spotify/web-api-ts-sdk/+esm'
     let spotifyToken = await webStorage.getItem('spotifyToken').then(response=>response.json())
