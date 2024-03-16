@@ -22,6 +22,9 @@
             message+=key+': '+error[key]+'<br><br>'
         }
         document.body.innerHTML=message
+        if(webStorage){
+            webStorage.setItem(Date.now+'.error.html',message)
+        }
     }
 
     window.onbeforeunload=function(){
